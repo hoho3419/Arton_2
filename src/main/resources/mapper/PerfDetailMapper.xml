@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/schema/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.arton.app.dao.PerfDetailMapper">
+
+    <!-- 공연상세 읽기 -->
+    <!--
+        * parameterType : int(perfId)
+        * usage : DealService
+    -->
+    <select id="selectByPerfId" parameterType="int" resultType="PerfDetailDto">
+        SELECT *
+        FROM perf_detail
+        WHERE perf_id = #{perfId}
+        ORDER BY detail_index
+    </select>
+
+    <!--////////////////////////////////////////////////////////////////////////-->
+    <!-- for Test -->
+
+    <!--deleteAll-->
+    <delete id="deleteAllForTest">
+        DELETE FROM perf_detail
+    </delete>
+
+    <!--count-->
+    <select id="countForTest" resultType="int">
+        SELECT count(*) FROM perf_detail
+    </select>
+
+    <!--insert-->
+    <insert id="insertForTest" parameterType="PerfDetailDto">
+        INSERT INTO perf_detail (perf_id, detail_index, detail_path, detail_path_db)
+        VALUES (#{perfId}, #{detailIndex},#{detailPath},#{detailPathDb})
+    </insert>
+</mapper>

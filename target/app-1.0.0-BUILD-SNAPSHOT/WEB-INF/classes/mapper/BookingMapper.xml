@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/schema/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.arton.app.dao.BookingMapper">
+    <!--BookingDto 의 inner class 매핑-->
+    <resultMap id="BookingMap" type="BookingDto">
+        <result column="id" property="id"/>
+        <result column="user_idx" property="userIdx"/>
+        <result column="perf_id" property="perfId"/>
+        <result column="seat_invt_id" property="seatInvtId"/>
+        <result column="seat_id" property="seatId"/>
+        <result column="perf_round_id" property="perfRoundId"/>
+        <result column="booking_time" property="bookingTime"/>
+        <result column="ticket_cnt" property="ticketCnt"/>
+        <result column="price_o_total" property="priceOTotal"/>
+        <result column="price_cut" property="priceCut"/>
+        <result column="total_payment" property="totalPayment"/>
+        <result column="pay_method" property="payMethod"/>
+        <result column="booking_status" property="bookingStatus"/>
+        <result column="cancel_time" property="cancelTime"/>
+
+        <collection property="perfDto" resultMap="PerfDto"/>
+        <collection property="perfRoundDto" resultMap="PerfRoundDto"/>
+        <collection property="seatDto" resultMap="SeatDto"/>
+    </resultMap>
+
+    <resultMap id="PerfDto" type="PerfDto">
+        <result column="perf_name" property="perfName"/>
+        <result column="location" property="location"/>
+        <result column="discount_rate" property="discountRate"/>
+    </resultMap>
+
+    <resultMap id="PerfRoundDto" type="PerfRoundDto">
+        <result column="show_date" property="showDate"/>
+        <result column="show_time" property="showTime"/>
+    </resultMap>
+
+    <resultMap id="SeatDto" type="SeatDto">
+        <result column="seat_class" property="seatClass"/>
+        <result column="seat_price" property="seatPrice"/>
+    </resultMap>
+
+
+    <!-- 예매 생성 -->
+    <!--
+        * parameterType : BookingRequest
+        * usage : DealService
+        * process : 선행작업 필요(SeatInvtMapper - 예매 시 좌석수 감소)
+            1) 좌석 차감 먼저 성공한 후(성공 시 리턴값 1),
+            2) 예매 생성
+            (좌석 차감에서 리턴값이 0이 나오면 좌석 재고가 모자라서 좌석수 감소가 적용되지 않은 것임.)
+    -->
+    <insert id="insertBooking" parameterType="BookingRequest">
+
+        INSERT INTO booking(user_idx, perf_id, seat_invt_id, seat_id, perf_round_id, booking_time, ticket_cnt, price_o_total, price_cut, total_payment, pay_method, booking_status, cancel_time)
+        SELECT
+            #{userIdx}
+            , perf_id
+            , #{seatInvtId}
+            , seat_id
+            , perf_round_id
+            , NOW()
+            , #{ticketCnt}
+            , seat_price * #{ticketCnt}
+            , seat_price * #{ticketCnt} * discount_rate / 100
+            , seat_price * #{ticketCnt} - seat_price * #{ticketCnt} * discount_rate / 100
+            , #{payMethod}
+            , 1
+            , null
+        FROM view_seat_invt vsi WHERE vsi.seat_invt_id = #{seatInvtId}
+        <!--만들어 둔 View 를 통해 예매 삽입에 필요한 모든 정보를 자동으로 가져오고 계산(개수, 할인율, 금액) 후 삽입 할 수 있도록 작성하였다.
+            => 따라서 예매 정보 insert 에 필요한 정보는 userIdx, ticketCnt, payMethod, seatInvtId 4개 뿐이다. -->
+    </insert>
+
+
+    <!-- 예매 취소 -->
+    <!--
+        * parameterType : int(bookingId)
+        * usage : MyPageService
+        * process : 후행작업 필요(SeatInvtMapper - 예매 취소 시 좌석수 증가)
+            1) 예매 취소 이후,
+            2) 취소한 좌석 반환하기
+    -->
+    <update id="updateBookingStatus" parameterType="int">
+        UPDATE booking
+        SET
+        booking_status = 0
+        , cancel_time = NOW()
+        WHERE id = #{bookingId}
+    </update>
+
+
+
+
+    <!-- 마이 페이지 예매내역 1개 읽기 -->
+    <!--
+        * parameterType : int(bookingId)
+        * usage : MyPageService
+    -->
+    <select id="selectBookingById" parameterType="int" resultType="BookingDto">
+        SELECT *
+        FROM booking
+        WHERE id = #{bookingId}
+    </select>
+
+
+    <!-- 마이페이지 예매내역 목록 읽기 -->
+    <!--
+        * parameterType : int(userIdx)
+        * usage : MyPageService
+    -->
+    <select id="selectBookingsByUserIdx" parameterType="int" resultMap="BookingMap">
+        SELECT
+            b.*
+            , vsi.perf_name
+            , vsi.location
+            , vsi.discount_rate
+            , vsi.show_date
+            , vsi.show_time
+            , vsi.seat_class
+            , vsi.seat_price
+        FROM booking b
+        JOIN view_seat_invt vsi ON vsi.seat_invt_id = b.seat_invt_id
+            AND b.user_idx = #{userIdx}
+        ORDER BY b.booking_time DESC
+        <!-- user_idx = #{userIdx} 조건을 WHERE 절에 걸지 않고 JOIN 절에 AND(몇몇 DB에서는 ON)로 걸어둔 것은 DB 성능을 고려한 것이다.
+
+            **참고 - https://stackoverflow.com/questions/354070/sql-join-where-clause-vs-on-clause
+                a. WHERE clause: After joining. Records will be filtered after join has taken place.
+                b. ON clause - Before joining. Records (from right table) will be filtered before joining. This may end up as null in the result (since OUTER join).
+        -->
+    </select>
+
+
+    <!-- 예매 여부 확인(댓글 작성 시) -->
+    <!--
+        * parameterType : map(userIdx, perfId)
+        * usage : DealService(comment)
+    -->
+    <select id="countBookingStatusByUserIdxAndPerfId" parameterType="map" resultType="int">
+        SELECT count(id)
+        FROM booking
+        WHERE user_idx = #{userIdx} AND perf_id = #{perfId} AND booking_status = 1
+    </select>
+
+
+    <!--////////////////////////////////////////////////////////////////////////-->
+    <!-- for Test -->
+
+    <!--deleteAll-->
+    <!--<delete id="deleteAllForTest">-->
+    <!--    DELETE FROM booking-->
+    <!--</delete>-->
+
+    <!--count-->
+    <select id="countForTest" resultType="int">
+        SELECT count(*) FROM booking
+    </select>
+</mapper>

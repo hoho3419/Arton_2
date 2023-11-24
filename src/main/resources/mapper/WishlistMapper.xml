@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/schema/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.arton.app.dao.WishlistMapper">
+
+    <!-- 사용자의 해당 공연 찜 여부 확인-->
+    <!--
+        * parameterType : map(userIdx, perfId)
+        * usage : DealService
+    -->
+    <select id="selectWishlistByUserIdxAndPerfId" parameterType="map" resultType="WishlistDto">
+        SELECT * FROM wishlist
+        WHERE user_idx = #{userIdx} AND perf_id = #{perfId}
+    </select>
+
+
+    <!-- 찜하기 -->
+    <!--
+        * parameterType : map(userIdx, perfId)
+        * usage : DealService
+    -->
+    <insert id="insertWishlist" parameterType="map">
+        INSERT INTO wishlist
+        (user_idx, perf_id, liked)
+            SELECT #{userIdx}, #{perfId}, 1
+            FROM DUAL
+        WHERE NOT EXISTS (SELECT liked FROM wishlist WHERE user_idx = #{userIdx} And perf_id = #{perfId})
+    </insert>
+
+    <!-- 찜하기 취소 -->
+    <!--
+        * parameterType : map(userIdx, perfId)
+        * usage : DealService
+    -->
+    <delete id="deleteWishlist" parameterType="map">
+        DELETE FROM wishlist
+        WHERE user_idx = #{userIdx} AND perf_id = #{perfId}
+    </delete>
+
+    <!--해당 공연 찜 갯수만 가져오기(Ajax 갱신)-->
+    <!--
+        * parameterType : int(perfId)
+        * usage : DealService
+    -->
+    <select id="countWishlistByPerfId" parameterType="int" resultType="int">
+        SELECT COUNT(liked) WHERE perf_id = #{perfId}
+    </select>
+
+
+    <!--////////////////////////////////////////////////////////////////////////-->
+    <!-- for Test -->
+
+    <!--deleteAll-->
+    <delete id="deleteAllForTest">
+        DELETE FROM wishlist
+    </delete>
+
+    <!--count-->
+    <select id="countForTest" resultType="int">
+        SELECT count(*) FROM wishlist
+    </select>
+</mapper>

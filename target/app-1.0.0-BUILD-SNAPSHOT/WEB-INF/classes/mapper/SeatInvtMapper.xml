@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/schema/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.arton.app.dao.SeatInvtMapper">
+
+    <!--예매 시 좌석수 감소(좌석 차감) - 예매 시 ticketCnt 만큼 좌석수 감소-->
+    <!--
+        * parameterType : BookingRequest(seatInvtId, ticketCnt)
+        * usage : DealService
+        * process : 후행작업 필요(BookingMapper - 예매 생성)
+            1) 좌석 차감 먼저 성공한 후(성공 시 리턴값 1),
+            2) 예매 생성
+            (좌석 차감에서 리턴값이 0이 나오면 좌석 재고가 모자라서 좌석수 감소가 적용되지 않은 것임.)
+    -->
+    <!-- **예매는 한번에 4장 이하만 가능 -->
+    <update id="updateSeatInvtDecreaseSeatStock" parameterType="BookingRequest">
+        UPDATE seat_invt
+        SET
+            seat_stock = seat_stock-#{ticketCnt}
+        WHERE #{ticketCnt} <![CDATA[<=]]> 4
+            AND id = #{seatInvtId}
+            AND seat_stock - #{ticketCnt} <![CDATA[>=]]> 0
+        <!-- <![CDATA[<=]]> 는 xml에서 부등호를 사용하는 방법 중 하나이다.
+             마지막 줄의
+             AND seat_stock - #{ticketCnt} <![CDATA[>=]]> 0
+             는 좌석 재고(seat_stock)가 예매수량(ticketCnt) 보다 적게 남았을 경우 예매가 되지 않도록 하기 위한 부분이다.-->
+    </update>
+
+    <!--예매 취소 시 좌석수 증가(좌석 반환) - 예매 취소한 ticketCnt 만큼 좌석수 증가-->
+    <!--
+        * parameterType : BookingRequest(seatInvtId, ticketCnt)
+        * usage : DealService
+        * process : 선행작업 필요(BookingMapper - 예매 취소)
+            1) 예매 취소 이후,
+            2) 취소한 좌석 반환하기
+    -->
+    <update id="updateSeatInvtIncreaseSeatStock" parameterType="BookingRequest">
+        UPDATE seat_invt
+        SET
+            seat_stock = seat_stock + #{ticketCnt}
+        WHERE id = #{seatInvtId}
+    </update>
+
+
+    <!--////////////////////////////////////////////////////////////////////////-->
+    <!-- for Test -->
+
+    <!--deleteAll-->
+    <delete id="deleteAllForTest">
+        DELETE FROM seat_invt
+    </delete>
+
+    <!--count-->
+    <select id="countForTest" resultType="int">
+        SELECT count(*) FROM seat_invt
+    </select>
+
+    <!--insert-->
+    <!-- parameterType : SeatInvtDto-->
+    <insert id="insertForTest" parameterType="SeatInvtDto">
+        INSERT INTO seat_invt (perf_round_id, perf_id, seat_id, seat_init, seat_stock)
+        VALUES (#{perfRoundId}, #{perfId}, #{seatId}, #{seatInit}, #{seatStock})
+    </insert>
+
+    <!--select-->
+    <!-- parameterType : map(perfRoundId, seatId)-->
+    <select id="selectForTest" parameterType="map" resultType="SeatInvtDto">
+        SELECT * FROM seat_invt WHERE perf_round_id = #{perfRoundId} AND seat_id = #{seatId}
+    </select>
+</mapper>

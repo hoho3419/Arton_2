@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/schema/mybatis-3-mapper.dtd">
+
+
+<mapper namespace="com.arton.app.dao.UserMapper">
+
+
+    <!-- 회원 가입 시 id 중복체크 -->
+    <!--
+        * parameterType : String(userId)
+        * usage : RegisterService
+    -->
+    <select id="countById" parameterType="String" resultType="int">
+        SELECT COUNT(*) FROM user WHERE user_id = #{value}
+    </select>
+
+
+    <!-- 회원 가입 -->
+    <!--
+        * parameterType : UserDto
+        * usage : RegisterService
+    -->
+    <insert id="insertUser" parameterType="UserDto">
+        INSERT INTO user
+        (user_id, user_pw, user_name, user_email, birth_date, gender, user_phone, join_time, promo_chk, last_login_time, user_status)
+        VALUES
+        (#{userId}, #{userPw}, #{userName}, #{userEmail}, #{birthDate}, #{gender}, #{userPhone}, NOW(), #{promoChk}, NOW(), 1)
+    </insert>
+
+
+    <!-- id, pw로 회원 확인 -->
+    <!--
+        * parameterType : UserLoginRequest(userId, userPw)
+        * usage : LoginService, MyPageService
+    -->
+    <select id="selectUserByUserIdAndUserPw" parameterType="UserLoginRequest" resultType="UserDto">
+        SELECT * from user where user_id = #{userId} AND user_pw = #{userPw}
+    </select>
+
+
+    <!-- 로그인 성공 시 마지막 로그인 시간 갱신 -->
+    <!--
+        * parameterType : int(userIdx)
+        * usage : LoginService
+    -->
+    <update id="updateUserLastLoginTime" parameterType="int">
+        UPDATE user
+        SET
+        last_login_time = NOW()
+        WHERE idx = #{userIdx}
+    </update>
+
+
+
+    <!-- 회원 비밀번호 변경 -->
+    <!--
+        * parameterType : ChangePwRequest
+        * usage : MyPageService
+    -->
+    <update id="updateUserPw" parameterType="ChangePwRequest">
+        UPDATE user
+        SET
+        user_pw = #{newPw}
+        WHERE user_id = #{userId} AND user_pw = #{userPw}
+    </update>
+
+
+    <!--회원 정보 변경 -->
+    <!--
+        * parameterType : UserDto
+        * usage : MyPageService
+    -->
+    <update id="updateUserByUserDto" parameterType="UserDto">
+        UPDATE user
+        SET
+            user_name = #{userName}
+            , user_email = #{userEmail}
+            , birth_date = #{birthDate}
+            , gender = #{gender}
+            , user_phone = #{userPhone}
+            , promo_chk = #{promoChk}
+            , user_status = #{userStatus}
+        WHERE user_id = #{userId} AND user_pw = #{userPw}
+    </update>
+
+
+    <!-- 회원 탈퇴 -->
+    <!--
+        * parameterType : UserLoginRequest
+        * usage : MyPageService
+    -->
+    <delete id="deleteUserByUserIdAndUserPw" parameterType="UserLoginRequest">
+        DELETE FROM user WHERE user_id = #{userId} AND user_pw = #{userPw}
+    </delete>
+    <!--**실무에서의 회원 탈퇴의 경우 고민해 볼 부분이 많아 보인다.
+        회원정보를 완전히 파기하는게 맞는것 같지만 첫 회원가입 할인쿠폰 같은 것을 주는 경우(그 외 다양한 상황)라면 같은 사용자정보로 탈퇴 후 재가입하는 것인지 확인 할 수 있어야 하지 않을까?,
+        그 외에도 여러 고려해야 할 부분이 있을 수 있을것 같다. 탈퇴회원의 개인정보는 삭제하되 그 외에 필요한 기록은 남길 수 있는 테이블이 따로 필요할 것 같기도 하다.-->
+
+
+
+    <!--////////////////////////////////////////////////////////////////////////-->
+    <!-- for Test -->
+
+    <!--deleteAll-->
+    <delete id="deleteAllForTest">
+        DELETE FROM user
+    </delete>
+
+    <!--count-->
+    <select id="countForTest" resultType="int">
+        SELECT count(*) FROM user
+    </select>
+
+    <!--select user-->
+    <select id="selectForTest" parameterType="String" resultType="UserDto">
+        SELECT * from user where user_id = #{value}
+    </select>
+
+
+
+
+    <!--관리자 기능-->
+    <!--&lt;!&ndash;for Admin&ndash;&gt;-->
+    <!--&lt;!&ndash;회원 갱신(휴면) : 로그인 1년 이상 지난 유저 휴면 상태로 갱신&ndash;&gt;-->
+    <!--<update id="adminUpdateUserStatus">-->
+    <!--    UPDATE user-->
+    <!--    SET-->
+    <!--        user_status = 2-->
+    <!--    WHERE DATE_ADD(last_login_time, INTERVAL 1 YEAR) <![CDATA[<]]> NOW()-->
+    <!--</update>-->
+
+    <!--&lt;!&ndash;회원 삭제 : 필요(userId)&ndash;&gt;-->
+    <!--<delete id="adminDelete" parameterType="String">-->
+    <!--    DELETE FROM user WHERE user_id = #{value};-->
+    <!--</delete>-->
+</mapper>
